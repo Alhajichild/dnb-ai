@@ -204,6 +204,31 @@ def _tokens(text: str) -> set[str]:
     return {_normalize_term(token) for token in _TOKEN_PATTERN.findall(text)}
 
 
+DEFAULT_CAPABILITY_KEYWORDS: Mapping[str, tuple[str, ...]] = {
+    "fiqh": ("fiqh", "halal", "haram", "ruling", "wudu", "prayer", "salah"),
+    "hadith": ("hadith", "bukhari", "muslim", "sahih", "narration"),
+    "tafsir": ("tafsir", "exegesis", "verse meaning"),
+    "quran": ("quran", "ayah", "surah"),
+    "zakat": ("zakat", "nisab", "charity"),
+    "stellar": ("stellar", "usdc", "wallet", "balance"),
+}
+
+
+def detect_capabilities(query: str) -> tuple[str, ...]:
+    """Map a query to capability names using the built-in domain keywords.
+
+    Matching is a case-insensitive substring test. Queries that match no domain
+    resolve to ``("general",)``.
+    """
+    lowered = query.lower()
+    found = tuple(
+        capability
+        for capability, terms in DEFAULT_CAPABILITY_KEYWORDS.items()
+        if any(term in lowered for term in terms)
+    )
+    return found or ("general",)
+
+
 class QueryAnalyzer:
     """Deterministic capability and agent selection engine."""
 

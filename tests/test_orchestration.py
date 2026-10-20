@@ -13,7 +13,39 @@ from orchestration import (
     PlanValidationError,
     QueryAnalyzer,
     TaskStatus,
+    detect_capabilities,
 )
+
+
+def test_detect_capabilities_maps_domain_keywords() -> None:
+    caps = detect_capabilities("What is the fiqh ruling on wudu and zakat?")
+    assert "fiqh" in caps
+    assert "zakat" in caps
+    assert "hadith" not in caps
+    assert "stellar" in detect_capabilities("Check my USDC wallet")
+    assert detect_capabilities("Hello there") == ("general",)
+
+
+def test_plan_orders_dependencies() -> None:
+    async def handler(task: AgentTask, context: object) -> str:
+        return task.id
+
+    async def run() -> None:
+        registry = AgentRegistry()
+        registry.register(AgentSpec("fiqh", frozenset({"fiqh"}), handler))
+        registry.register(AgentSpec("hadith", frozenset({"hadith"}), handler))
+        plan = ExecutionPlan(
+            (
+                AgentTask("t2", "hadith", "hadith", "q", dependencies=("t1",)),
+                AgentTask("t1", "fiqh", "fiqh", "q"),
+            )
+        )
+        result = await MultiAgentOrchestrator(registry).orchestrate("q", plan=plan)
+        assert result.status is TaskStatus.SUCCEEDED
+        assert "[fiqh]" in result.answer
+        assert "[hadith]" in result.answer
+
+    asyncio.run(run())
 
 
 def test_query_analysis_selects_matching_agents_and_execution_mode() -> None:
